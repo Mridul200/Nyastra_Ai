@@ -12,6 +12,7 @@ import AIChatbot from "./pages/AIChatbot";
 import DocumentGenerator from "./pages/DocumentGenerator";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import UserDashboard from "./pages/UserDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Layout>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<UserDashboard />} />
               <Route path="/search" element={<CaseSearch />} />
               <Route path="/upload" element={<UploadCase />} />
               <Route path="/chatbot" element={<AIChatbot />} />

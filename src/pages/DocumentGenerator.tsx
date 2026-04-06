@@ -207,6 +207,19 @@ export default function DocumentGenerator() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+
+        // --- SAVE TO HISTORY ---
+        const saved = localStorage.getItem("legal_documents_history");
+        const historyDocs = saved ? JSON.parse(saved) : [];
+        const newDoc = {
+          id: crypto.randomUUID(),
+          name: `${selectedDoc.label} - ${Object.values(formData)[0] || 'Draft'}`,
+          type: format.toUpperCase(),
+          date: Date.now(),
+        };
+        localStorage.setItem("legal_documents_history", JSON.stringify([newDoc, ...historyDocs].slice(0, 20)));
+        // -----------------------
+
         resolve();
       } catch (error) {
         reject(error);

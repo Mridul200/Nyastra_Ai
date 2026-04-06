@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, Bot, User, Loader2, Plus, History, MessageSquare,
-  Copy, Check, Globe, ChevronDown, Wifi, WifiOff
+  Copy, Check, Globe, ChevronDown, Wifi, WifiOff, Paperclip
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user" | "assistant"; content: string; attachment?: { name: string; url: string; type: string } };
 type ChatSession = { id: string; title: string; updatedAt: number; messages: Message[] };
 type ProviderHealth = { groq: boolean; gemini: boolean; openai: boolean; claude: boolean };
 
@@ -49,6 +49,7 @@ export default function AIChatbot() {
   const [health, setHealth] = useState<ProviderHealth | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [attachment, setAttachment] = useState<{name: string, type: string, data: string} | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // ── Scroll to bottom ──────────────────────────────────────────────────────
@@ -118,10 +119,15 @@ export default function AIChatbot() {
     const msg = text || input;
     if (!msg.trim() || isLoading) return;
 
-    const userMsg: Message = { role: "user", content: msg };
+    const userMsg: Message = { 
+      role: "user", 
+      content: msg,
+      attachment: attachment ? { name: attachment.name, url: attachment.data, type: attachment.type } : undefined
+    };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
+    // We already have attachment cleaning later in handleSend
     setIsLoading(true);
     setActiveProvider("Analyzing...");
 
@@ -150,6 +156,7 @@ export default function AIChatbot() {
           provider: selectedProvider,
           use_rag: true,
           use_search: useWebSearch,
+          attachment_base64: attachment?.data || null,
         }),
       });
 
@@ -157,6 +164,8 @@ export default function AIChatbot() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || `Request failed (${response.status})`);
       }
+
+      setAttachment(null); // Clear attachment on successful send
 
       const data = await response.json();
       assistantContent = data.response;
@@ -354,7 +363,28 @@ export default function AIChatbot() {
                   </button>
                 </>
               ) : (
-                m.content
+                <div className="flex flex-col gap-2">
+                  {m.attachment && (
+                    <div className="mb-1 rounded-lg overflow-hidden border border-white/10 bg-black/5">
+                      {m.attachment.type.startsWith("image/") && (
+                        <img src={m.attachment.url} alt="User upload" className="max-h-60 w-auto object-contain" />
+                      )}
+                      {m.attachment.type.startsWith("video/") && (
+                        <video src={m.attachment.url} controls className="max-h-60 w-auto" />
+                      )}
+                      {m.attachment.type.startsWith("audio/") && (
+                        <audio src={m.attachment.url} controls className="w-full h-10" />
+                      )}
+                      {!m.attachment.type.startsWith("image/") && !m.attachment.type.startsWith("video/") && !m.attachment.type.startsWith("audio/") && (
+                        <div className="p-3 flex items-center gap-2 text-xs bg-muted">
+                          <Paperclip className="w-4 h-4" />
+                          <span>{m.attachment.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {m.content}
+                </div>
               )}
             </div>
             {m.role === "user" && (
@@ -382,22 +412,58 @@ export default function AIChatbot() {
       </div>
 
       {/* ── Input ── */}
-      <div className="flex gap-3 pb-2 pt-2 bg-background">
-        <Input
-          placeholder="Ask a legal question (IPC, CrPC, Constitution, case laws...)"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          className="bg-card border-border text-foreground placeholder:text-muted-foreground h-14 rounded-xl shadow-sm text-base pr-4"
-          disabled={isLoading}
-        />
-        <Button
-          onClick={() => handleSend()}
-          className="h-14 px-6 rounded-xl shadow-sm"
-          disabled={isLoading || !input.trim()}
-        >
-          {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-        </Button>
+      <div className="flex flex-col gap-2 pb-2 pt-2 bg-background">
+        {/* Attachment Preview */}
+        {attachment && (
+          <div className="mx-2 flex items-center justify-between bg-muted/50 p-2 rounded-lg border border-border w-fit min-w-[200px]">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Paperclip className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-xs truncate max-w-[150px]">{attachment.name}</span>
+            </div>
+            <button onClick={() => setAttachment(null)} className="text-muted-foreground hover:text-red-400 ml-3">
+              <Check className="w-3 h-3 rotate-45 transform" />
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <label className="flex items-center justify-center h-14 w-14 rounded-xl border border-border bg-card shadow-sm cursor-pointer hover:bg-muted transition-colors">
+            <input 
+              type="file" 
+              className="hidden" 
+              accept="image/*,video/*,audio/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setAttachment({
+                      name: file.name,
+                      type: file.type,
+                      data: reader.result as string
+                    });
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+            />
+            <Paperclip className="w-5 h-5 text-muted-foreground" />
+          </label>
+          <Input
+            placeholder="Ask a legal question or attach evidence (photos, docs)..."
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-14 rounded-xl shadow-sm text-base pr-4 flex-1"
+            disabled={isLoading}
+          />
+          <Button
+            onClick={() => handleSend()}
+            className="h-14 px-6 rounded-xl shadow-sm"
+            disabled={isLoading || (!input.trim() && !attachment)}
+          >
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          </Button>
+        </div>
       </div>
     </div>
   );

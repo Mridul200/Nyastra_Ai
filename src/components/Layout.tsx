@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Scale, Search, Upload, MessageSquare, FileText, Menu, X, LogIn, LogOut } from "lucide-react";
+import { Scale, Search, Upload, MessageSquare, FileText, Menu, X, LogIn, LogOut, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/", label: "Home", icon: Scale },
   { to: "/search", label: "Case Search", icon: Search },
   { to: "/upload", label: "Upload Case", icon: Upload },

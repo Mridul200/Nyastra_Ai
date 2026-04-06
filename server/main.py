@@ -54,6 +54,7 @@ class ChatRequest(BaseModel):
     provider: Optional[str] = "groq"
     use_rag: Optional[bool] = True
     use_search: Optional[bool] = False
+    attachment_base64: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -133,7 +134,8 @@ async def chat(request: ChatRequest):
 
         response = await orchestrator.ask_legal_question(
             question=full_prompt,
-            provider=request.provider
+            provider=request.provider,
+            attachment_base64=request.attachment_base64
         )
 
         # Determine which provider was actually used

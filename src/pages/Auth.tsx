@@ -82,12 +82,12 @@ export default function Auth() {
 
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Welcome back!");
-        navigate("/");
+        navigate("/dashboard"); // Redirect to dashboard on login
       } else if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { error, data } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -96,9 +96,16 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast.success("Account created! Please check your email to verify your account.");
+        
+        if (data?.session) {
+          toast.success("Account created! Welcome.");
+          navigate("/dashboard");
+        } else {
+          toast.success("Account created! Please check your email to verify your account.");
+        }
       }
     } catch (err: any) {
+      console.error("Auth error details:", err);
       toast.error(err.message || "Authentication failed");
     } finally {
       setLoading(false);
@@ -264,7 +271,7 @@ export default function Auth() {
             </form>
           )}
 
-          <div className="mt-6 text-center space-y-2 flex flex-col items-center">
+          <div className="mt-6 text-center space-y-4 flex flex-col items-center">
             {mode === "forgot_password" ? (
               <button
                 onClick={() => setMode("login")}
@@ -274,13 +281,33 @@ export default function Auth() {
                 Back to Sign In
               </button>
             ) : (
-              <button
-                onClick={() => setMode(mode === "login" ? "signup" : "login")}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                type="button"
-              >
-                {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-              </button>
+              <div className="flex flex-col gap-3 w-full">
+                <button
+                  onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  type="button"
+                >
+                  {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                </button>
+                
+                <div className="flex items-center gap-2 py-2">
+                  <div className="h-px bg-border flex-1" />
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Or test for now</span>
+                  <div className="h-px bg-border flex-1" />
+                </div>
+
+                <Button 
+                  variant="outline" 
+                  className="w-full border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary gap-2"
+                  onClick={() => {
+                    // Logic to simulate login for dashboard testing
+                    navigate("/dashboard");
+                    toast.info("Entering Demo Mode (Guest)");
+                  }}
+                >
+                  Enter as Guest <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>

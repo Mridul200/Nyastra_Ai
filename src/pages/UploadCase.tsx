@@ -19,6 +19,17 @@ export default function UploadCase() {
   const handleAnalyze = () => {
     if (!caseText.trim() && !file) return;
     setAnalyzed(true);
+
+    const saved = localStorage.getItem("legal_cases_history");
+    const historyCases = saved ? JSON.parse(saved) : [];
+    const newCase = {
+      id: crypto.randomUUID(),
+      title: (file?.name || caseText.slice(0, 30) + "..."),
+      date: Date.now(),
+      relevance: 92,
+      topSection: "IPC 420"
+    };
+    localStorage.setItem("legal_cases_history", JSON.stringify([newCase, ...historyCases].slice(0, 20)));
   };
 
   return (

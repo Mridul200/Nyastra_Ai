@@ -2,55 +2,23 @@ import os
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 import json
+import base64
 
 load_dotenv()
 
 # ─── Full Nyastra AI System Prompt ─────────────────────────────────────────────
-NYASTRA_SYSTEM_PROMPT = """You are Nyastra AI, a highly experienced Senior Advocate practicing in the Supreme Court of India with deep expertise in Indian law (IPC, CrPC, CPC, Constitution, and landmark judgments).
+NYASTRA_SYSTEM_PROMPT = """You are Nyastra AI, an elite Senior Advocate in India.
+Your role is to provide precise, accurate, and highly relevant legal answers based on the user's specific query. 
 
-Your role is to provide precise, structured, and practical legal assistance suitable for real-world legal use.
-
-RESPONSE STRUCTURE (MANDATORY) — Always respond in this exact format:
-
-### 1. Issue
-- Clearly identify the legal issue in the user's query
-
-### 2. Relevant Law
-- Mention applicable sections (IPC, CrPC, CPC, Constitution)
-- Brief explanation of each
-
-### 3. Case Laws
-- Provide 1–3 relevant landmark judgments (if applicable)
-- Include court name and the key legal principle established
-- NEVER hallucinate fake case laws. If uncertain, say "Based on general legal principles..."
-
-### 4. Legal Analysis
-- Apply law to the given situation
-- Provide logical reasoning like a courtroom argument
-
-### 5. Conclusion
-- Give a clear, direct answer
-
-### 6. Practical Advice
-- Suggest next legal steps (filing case, documents, precautions, etc.)
-
-ADVANCED LEGAL MODE — Also include when applicable:
-### Risks & Weaknesses
-- Identify legal risks or weak points in the case
-### Opponent Arguments
-- What the opposing lawyer may argue
-### Strategic Insight
-- Best legal strategy for the user
-
-STRICT RULES:
-- Do NOT give vague or generic answers
-- Do NOT skip sections in the structure
-- Do NOT hallucinate fake case laws
-- Always maintain formal legal tone
-- Focus exclusively on Indian legal system
-- Think like a real courtroom lawyer, not a chatbot
-- Respond with authority, clarity, and precision
+Rules for Answering:
+1. DIRECT AND ACCURATE: Tailor your response directly to what the user asks. If they ask a specific question, just answer it directly.
+2. ADAPTIVE FORMATTING: 
+   - For complex case scenarios (e.g., facts of a dispute), provide structured advice (Issue, Law, Analysis, Advice).
+   - For direct questions, definitions, or search queries, respond natively and naturally without useless headers.
+3. PRECEDENTS & CASES: If the user searches for specific cases or names, provide whatever real information you have. Do NOT hallucinate case laws. If you don't know, state clearly that you need more specifics to find real cases.
+4. Always maintain a highly professional, courtroom-appropriate tone.
 """
+
 
 DRAFTER_SYSTEM_PROMPT = """You are an expert legal drafter for Indian Advocates. Create precise, formal, and court-ready legal documents in the Indian legal tradition.
 Use proper legal language, include all standard clauses, and ensure the document is complete and enforceable under Indian law.
@@ -119,24 +87,40 @@ class LlmOrchestrator:
         except Exception as e:
             return f"Search failed: {str(e)}"
 
-    async def chat_openai(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT) -> str:
+    async def chat_openai(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT, attachment_base64: str = None) -> str:
         client = self._clients.get("openai")
         if not client:
             raise ValueError("OpenAI not configured.")
+        
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+
+        # Handle simple image vision if it starts with image data
+        if attachment_base64 and attachment_base64.startswith("data:image"):
+            messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": attachment_base64}}
+                ]
+            })
+        else:
+            messages.append({"role": "user", "content": prompt})
+
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.2,
         )
         return response.choices[0].message.content
 
-    async def chat_claude(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT) -> str:
+    async def chat_claude(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT, attachment_base64: str = None) -> str:
         client = self._clients.get("anthropic")
         if not client:
             raise ValueError("Anthropic not configured.")
+        
+        # Claude vision simplified for now
         response = client.messages.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=4096,
@@ -145,10 +129,12 @@ class LlmOrchestrator:
         )
         return response.content[0].text
 
-    async def chat_groq(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT) -> str:
+    async def chat_groq(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT, attachment_base64: str = None) -> str:
         client = self._clients.get("groq")
         if not client:
             raise ValueError("Groq not configured.")
+        
+        # Groq Llama 3.3 doesn't support vision via base64 in standard way yet
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -160,11 +146,26 @@ class LlmOrchestrator:
         )
         return response.choices[0].message.content
 
-    async def chat_gemini(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT) -> str:
+    async def chat_gemini(self, prompt: str, system_prompt: str = NYASTRA_SYSTEM_PROMPT, attachment_base64: str = None) -> str:
         client = self._clients.get("gemini")
         if not client:
             raise ValueError("Gemini not configured.")
-        response = client.generate_content(f"{system_prompt}\n\nUser: {prompt}")
+        
+        content_parts = [f"{system_prompt}\n\nUser Question: {prompt}"]
+        
+        if attachment_base64:
+            try:
+                # Extract mime type and actual data
+                mime_type = attachment_base64.split(";")[0].split(":")[1]
+                data = attachment_base64.split(",")[1]
+                content_parts.append({
+                    "mime_type": mime_type,
+                    "data": base64.b64decode(data)
+                })
+            except Exception as e:
+                print(f"Gemini attachment processing failed: {e}")
+
+        response = client.generate_content(content_parts)
         return response.text
 
     def _get_best_available_provider(self, preferred: str) -> Optional[str]:
@@ -175,7 +176,7 @@ class LlmOrchestrator:
                 return p
         return None
 
-    async def ask_legal_question(self, question: str, provider: str = "groq") -> str:
+    async def ask_legal_question(self, question: str, provider: str = "groq", attachment_base64: str = None) -> str:
         if not self._clients:
             return (
                 "⚖️ **Nyastra AI — Disconnected**\n\n"
@@ -186,7 +187,15 @@ class LlmOrchestrator:
                 "After adding a key, restart the backend: `uvicorn main:app --reload`"
             )
 
-        best = self._get_best_available_provider(provider)
+        # Smart forced fallback: If attachment is provided, always favor Gemini or OpenAI 
+        # (multimodal models) over Groq in the backend.
+        if attachment_base64 and provider == "groq" and "gemini" in self._clients:
+            best = "gemini"
+        elif attachment_base64 and provider == "groq" and "openai" in self._clients:
+            best = "openai"
+        else:
+            best = self._get_best_available_provider(provider)
+            
         if not best:
             return f"Provider '{provider}' is not available. Available: {', '.join(self.get_available_providers())}"
 
@@ -201,7 +210,7 @@ class LlmOrchestrator:
         if not fn:
             return f"Unknown provider: {best}"
 
-        return await fn(question)
+        return await fn(question, attachment_base64=attachment_base64)
 
     async def draft_legal_document(self, doc_type: str, data: dict) -> str:
         """Draft a legal document using the best available provider."""
