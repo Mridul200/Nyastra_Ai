@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 5%;
+    --foreground: 30 20% 92%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 30 20% 92%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 30 20% 92%;
+
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 30 20% 92%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 0 72% 51%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 0 72% 51%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 30 20% 92%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 30 20% 92%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 0 72% 51%;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    --gradient-primary: linear-gradient(135deg, hsl(0, 72%, 51%), hsl(15, 80%, 55%));
+    --gradient-dark: linear-gradient(180deg, hsl(0, 0%, 8%) 0%, hsl(0, 0%, 4%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 10%) 0%, hsl(0, 0%, 7%) 100%);
+    --shadow-glow: 0 0 30px -5px hsl(0 72% 51% / 0.25);
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+
+  .glow-border {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .card-gradient {
+    background: var(--gradient-card);
+  }
+}
