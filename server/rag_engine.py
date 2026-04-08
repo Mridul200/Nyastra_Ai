@@ -1,7 +1,5 @@
 import os
 from typing import List
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,36 +8,53 @@ class RagEngine:
     def __init__(self, persist_directory: str = "./db/chroma"):
         self.persist_directory = persist_directory
         self.vector_db = None
+        self.embeddings = None
 
         # Ensure directory exists
         if not os.path.exists(persist_directory):
-            os.makedirs(persist_directory)
-
-        # Use free local HuggingFace embeddings by default.
-        # Falls back to OpenAI if OPENAI_API_KEY is present.
-        self._init_embeddings()
+            try:
+                os.makedirs(persist_directory)
+            except Exception:
+                pass
 
     def _init_embeddings(self):
-        """Initialize embeddings — prefers free local model, falls back to OpenAI."""
+        """Lazy load embeddings only when needed to save startup RAM."""
+        if self.embeddings is not None:
+            return
+
         openai_key = os.getenv("OPENAI_API_KEY")
         try:
             if openai_key:
                 from langchain_openai import OpenAIEmbeddings
                 self.embeddings = OpenAIEmbeddings(api_key=openai_key)
-                print("RAG: Using OpenAI embeddings.")
+                print("RAG: Using lightweight OpenAI API embeddings.")
             else:
-                raise ValueError("No OpenAI key — using local embeddings.")
+                raise ValueError("No OpenAI key.")
         except Exception:
-            from langchain_huggingface import HuggingFaceEmbeddings
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name="all-MiniLM-L6-v2",
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"normalize_embeddings": True},
-            )
-            print("RAG: Using local HuggingFace embeddings (all-MiniLM-L6-v2).")
+            # Fallback to local HuggingFace — ONLY if we really have to
+            # This is the memory-heavy part!
+            try:
+                print("RAG: Loading local embedding model (Memory intensive)...")
+                from langchain_huggingface import HuggingFaceEmbeddings
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name="all-MiniLM-L6-v2",
+                    model_kwargs={"device": "cpu"},
+                    encode_kwargs={"normalize_embeddings": True},
+                )
+                print("RAG: Local model loaded successfully.")
+            except Exception as e:
+                print(f"RAG ERROR: Could not load embedding model due to memory: {e}")
+                self.embeddings = None
 
     def load_db(self):
-        """Load existing Chroma DB. Handles empty/non-existent DB gracefully."""
+        """Load Chroma DB lazily."""
+        if self.vector_db is not None:
+            return
+        
+        self._init_embeddings()
+        if not self.embeddings:
+            return
+
         try:
             from langchain_community.vectorstores import Chroma
             self.vector_db = Chroma(
@@ -47,12 +62,18 @@ class RagEngine:
                 embedding_function=self.embeddings
             )
         except Exception as e:
-            print(f"RAG: Could not load Chroma DB ({e}). Will create on first document add.")
+            print(f"RAG: Could not load Chroma DB ({e})")
             self.vector_db = None
 
-    def add_documents(self, documents: List[Document]):
+    def add_documents(self, documents):
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
         from langchain_community.vectorstores import Chroma
-        # Fixed: chunk_overlap (not chunk_offset)
+        
+        self._init_embeddings()
+        if not self.embeddings:
+            print("RAG: Cannot add documents - Embedding model not loaded.")
+            return
+
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = text_splitter.split_documents(documents)
 
