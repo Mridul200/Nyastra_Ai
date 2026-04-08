@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { API_BASE_URL } from "@/config";
+
 
 type CaseResult = {
   title: string;
@@ -62,7 +64,8 @@ export default function CaseSearch() {
 
     try {
       // Route through backend first
-      const res = await fetch(`http://localhost:8000/search-cases?query=${encodeURIComponent(query)}`);
+      const res = await fetch(`${API_BASE_URL}/search-cases?query=${encodeURIComponent(query)}`);
+
       if (res.ok) {
         const data = await res.json();
         if (data.source === "indiankanoon" && Array.isArray(data.results) && data.results.length > 0) {

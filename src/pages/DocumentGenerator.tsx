@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { API_BASE_URL } from "@/config";
+
 import ReactMarkdown from "react-markdown";
 
 type DocType = {
@@ -123,7 +125,8 @@ export default function DocumentGenerator() {
 
     try {
       // Try backend first
-      const res = await fetch("http://localhost:8000/chat", {
+      const res = await fetch(`${API_BASE_URL}/chat`, {
+
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: prompt, provider: "groq", use_rag: false }),
@@ -173,7 +176,7 @@ export default function DocumentGenerator() {
     const promise = new Promise<void>(async (resolve, reject) => {
       try {
         const response = await fetch(
-          `http://localhost:8000/draft-legal-document?doc_type=${encodeURIComponent(selectedDoc.label)}&format=${format}`,
+          `${API_BASE_URL}/draft-legal-document?doc_type=${encodeURIComponent(selectedDoc.label)}&format=${format}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -184,14 +187,16 @@ export default function DocumentGenerator() {
         if (!response.ok) {
           // Fallback: generate from preview content
           if (preview) {
-            const genRes = await fetch("http://localhost:8000/generate-document", {
+            const genRes = await fetch(`${API_BASE_URL}/generate-document`, {
+
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ doc_type: selectedDoc.label, content: preview, title: selectedDoc.label, format }),
             });
             if (!genRes.ok) throw new Error("Document generation failed.");
             const { filename } = await genRes.json();
-            window.open(`http://localhost:8000/output/${filename}`, "_blank");
+            window.open(`${API_BASE_URL}/output/${filename}`, "_blank");
+
             resolve();
             return;
           }

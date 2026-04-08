@@ -16,6 +16,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { API_BASE_URL } from "@/config";
+
 
 type Message = { role: "user" | "assistant"; content: string; attachment?: { name: string; url: string; type: string } };
 type ChatSession = { id: string; title: string; updatedAt: number; messages: Message[] };
@@ -73,7 +75,8 @@ export default function AIChatbot() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch("http://localhost:8000/health");
+        const res = await fetch(`${API_BASE_URL}/health`);
+
         if (res.ok) {
           const data = await res.json();
           setHealth(data.providers);
@@ -148,7 +151,8 @@ export default function AIChatbot() {
     let assistantContent = "";
 
     try {
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
