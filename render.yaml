@@ -19,7 +19,7 @@ services:
         value: .
 
   # Frontend Vite Static Site
-  - type: static
+  - type: static_site
     name: nyastra-frontend
     env: node
     buildCommand: npm install && npm run build
